@@ -26,13 +26,13 @@ const io = new Server(httpServer, {
 
 // Configure AWS SDK (Set the Region)
 AWS.config.update({
-  region: "ap-south-1", // Change to your AWS region
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID, // Use Environment Variables
+  region: "ap-south-1",
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
 });
 
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
-const TABLE_NAME = "Messages"; // Change to your DynamoDB table name
+const TABLE_NAME = "Messages";
 
 // Function to save message to DynamoDB
 const saveMessageToDynamoDB = async (message) => {
@@ -62,16 +62,15 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "healthy" });
 });
 
+// Add Root Route
 app.get("/", (req, res) => {
-  res.status(200).send("Welcome to the Vibin Socket!");
+  res.status(200).send("Welcome to the Vibin API!");
 });
-
 
 // Handle connection
 io.on("connection", (socket) => {
   console.log(`✅ Client connected: ${socket.id}`);
 
-  // Handle 'join' event
   socket.on("join", ({ matchId }) => {
     if (matchId) {
       socket.join(matchId);
@@ -81,23 +80,17 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Handle 'sendMessage' event
   socket.on("sendMessage", async (message) => {
     const { matchId, content, senderId, messageId } = message;
     if (matchId) {
       console.log(`📩 New message in room ${matchId}:`, content);
-
-      // Save message to DynamoDB
       await saveMessageToDynamoDB(message);
-
-      // Broadcast to the room
       io.to(matchId).emit("newMessage", message);
     } else {
       console.error("❌ Invalid matchId in message");
     }
   });
 
-  // Handle disconnection
   socket.on("disconnect", (reason) => {
     console.log(`❌ Client disconnected: ${socket.id}, Reason: ${reason}`);
   });
