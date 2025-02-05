@@ -24,7 +24,7 @@ jobs:
         run: npm install
 
       - name: Archive deployment package
-        run: zip -r deploy.zip . -x "*.git*"
+        run: zip -r deploy.zip . -x "*.git*" "node_modules/*" ".github/*"      
 
       - name: Deploy to AWS Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v22
