@@ -62,6 +62,11 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "healthy" });
 });
 
+app.get("/", (req, res) => {
+  res.status(200).send("Welcome to the Vibin Socket!");
+});
+
+
 // Handle connection
 io.on("connection", (socket) => {
   console.log(`✅ Client connected: ${socket.id}`);
