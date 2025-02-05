@@ -3,7 +3,7 @@ name: Deploy to AWS Elastic Beanstalk
 on:
   push:
     branches:
-      - main  # Trigger on push to the main branch
+      - main # Trigger on push to the main branch
 
 jobs:
   deploy:
@@ -17,14 +17,14 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18  # Adjust Node.js version as needed
-          cache: 'npm'
+          node-version: 18 # Adjust Node.js version as needed
+          cache: "npm"
 
       - name: Install dependencies
         run: npm install
 
       - name: Archive deployment package
-        run: zip -r deploy.zip . -x "*.git*" "node_modules/*" ".github/*"      
+        run: zip -r deploy.zip . -x "*.git*" "node_modules/*" ".github/*"
 
       - name: Deploy to AWS Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v22
