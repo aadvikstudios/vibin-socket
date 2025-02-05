@@ -23,9 +23,6 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build project
-        run: npm run build  # Skip if not needed
-
       - name: Archive deployment package
         run: zip -r deploy.zip . -x "*.git*"
 
