@@ -34,7 +34,6 @@ AWS.config.update({
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
 const TABLE_NAME = "Messages"; // Change to your DynamoDB table name
 
-
 // Function to save message to DynamoDB
 const saveMessageToDynamoDB = async (message) => {
   const params = {
@@ -57,6 +56,11 @@ const saveMessageToDynamoDB = async (message) => {
     console.error("❌ Failed to save message to DynamoDB:", error);
   }
 };
+
+// Add Health Check Endpoint
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "healthy" });
+});
 
 // Handle connection
 io.on("connection", (socket) => {
