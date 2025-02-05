@@ -34,6 +34,7 @@ AWS.config.update({
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
 const TABLE_NAME = "Messages"; // Change to your DynamoDB table name
 
+
 // Function to save message to DynamoDB
 const saveMessageToDynamoDB = async (message) => {
   const params = {
