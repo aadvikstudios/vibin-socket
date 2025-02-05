@@ -34,5 +34,5 @@ jobs:
           region: ${{ secrets.AWS_REGION }}
           application_name: vibin-socket
           environment_name: Vibin-socket-env
-          version_label: "deploy-${{ github.run_number }}"
+          version_label: "build-${{ github.sha }}-${{ github.run_number }}"
           deployment_package: deploy.zip
