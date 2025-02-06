@@ -105,6 +105,8 @@ io.on("connection", (socket) => {
   // Mark message as delivered
   socket.on("messageDelivered", async ({ matchId, messageId }) => {
     try {
+      console.log(`🔍 Marking message as delivered: ${messageId}`); // Debugging log
+
       const updateParams = {
         TableName: TABLE_NAME,
         Key: { matchId, createdAt: messageId.split("-")[1] },
@@ -114,11 +116,12 @@ io.on("connection", (socket) => {
       };
 
       await dynamoDB.update(updateParams).promise();
+      console.log(`✅ Message ${messageId} marked as delivered`);
+
       io.to(matchId).emit("messageStatusUpdate", {
         messageId,
         status: "delivered",
       });
-      console.log(`✅ Message ${messageId} marked as delivered`);
     } catch (error) {
       console.error("❌ Error updating message status:", error);
     }
@@ -127,6 +130,8 @@ io.on("connection", (socket) => {
   // Mark messages as read
   socket.on("messageRead", async ({ matchId, senderId }) => {
     try {
+      console.log(`🔍 Marking messages as read for matchId: ${matchId}`); // Debugging log
+
       const scanParams = {
         TableName: TABLE_NAME,
         KeyConditionExpression: "matchId = :matchId",
