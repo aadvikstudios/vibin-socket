@@ -36,21 +36,36 @@ const TABLE_NAME = "Messages";
 
 // Function to save message to DynamoDB
 const saveMessageToDynamoDB = async (message) => {
-  const params = {
+  const getParams = {
     TableName: TABLE_NAME,
-    Item: {
+    Key: {
       matchId: message.matchId,
       messageId: message.messageId,
-      senderId: message.senderId,
-      content: message.content,
-      createdAt: new Date().toISOString(),
-      isUnread: true,
-      liked: false,
     },
   };
 
   try {
-    await dynamoDB.put(params).promise();
+    const existingMessage = await dynamoDB.get(getParams).promise();
+
+    if (existingMessage.Item) {
+      console.log("⚠️ Duplicate message detected:", message.messageId);
+      return; // Skip saving duplicate message
+    }
+
+    const putParams = {
+      TableName: TABLE_NAME,
+      Item: {
+        matchId: message.matchId,
+        messageId: message.messageId,
+        senderId: message.senderId,
+        content: message.content,
+        createdAt: new Date().toISOString(),
+        isUnread: true,
+        liked: false,
+      },
+    };
+
+    await dynamoDB.put(putParams).promise();
     console.log("✅ Message saved to DynamoDB:", message);
   } catch (error) {
     console.error("❌ Failed to save message to DynamoDB:", error);
