@@ -103,25 +103,49 @@ io.on("connection", (socket) => {
   });
 
   // Mark message as delivered
-  socket.on("messageDelivered", async ({ matchId, messageId }) => {
+  socket.on("messageDelivered", async ({ matchId }) => {
     try {
-      console.log(`🔍 Marking message as delivered: ${messageId}`); // Debugging log
+      console.log(
+        `🔍 Fetching all 'sent' messages to mark as delivered for matchId: ${matchId}`
+      );
 
-      const updateParams = {
+      // Fetch all messages that are still in "sent" state
+      const scanParams = {
         TableName: TABLE_NAME,
-        Key: { matchId, createdAt: messageId.split("-")[1] },
-        UpdateExpression: "set #status = :delivered",
+        FilterExpression: "matchId = :matchId AND #status = :sent",
         ExpressionAttributeNames: { "#status": "status" },
-        ExpressionAttributeValues: { ":delivered": "delivered" },
+        ExpressionAttributeValues: { ":matchId": matchId, ":sent": "sent" },
       };
 
-      await dynamoDB.update(updateParams).promise();
-      console.log(`✅ Message ${messageId} marked as delivered`);
+      const { Items } = await dynamoDB.scan(scanParams).promise();
 
-      io.to(matchId).emit("messageStatusUpdate", {
-        messageId,
-        status: "delivered",
-      });
+      if (Items.length > 0) {
+        console.log(`✅ Found ${Items.length} messages to update.`);
+
+        // Update each message to "delivered"
+        for (let msg of Items) {
+          const updateParams = {
+            TableName: TABLE_NAME,
+            Key: { matchId, createdAt: msg.createdAt },
+            UpdateExpression: "set #status = :delivered",
+            ExpressionAttributeNames: { "#status": "status" },
+            ExpressionAttributeValues: { ":delivered": "delivered" },
+          };
+
+          await dynamoDB.update(updateParams).promise();
+        }
+
+        // Emit event to frontend for real-time update
+        io.to(matchId).emit("messageStatusUpdate", { status: "delivered" });
+
+        console.log(
+          `✅ All messages for matchId: ${matchId} marked as delivered`
+        );
+      } else {
+        console.log(
+          `⚠️ No 'sent' messages found to update for matchId: ${matchId}`
+        );
+      }
     } catch (error) {
       console.error("❌ Error updating message status:", error);
     }
