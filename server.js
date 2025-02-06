@@ -45,6 +45,7 @@ const saveMessageToDynamoDB = async (message) => {
   };
 
   try {
+    // Check if the message already exists
     const existingMessage = await dynamoDB.get(getParams).promise();
 
     if (existingMessage.Item) {
@@ -52,6 +53,7 @@ const saveMessageToDynamoDB = async (message) => {
       return; // Skip saving duplicate message
     }
 
+    // Save the new message
     const putParams = {
       TableName: TABLE_NAME,
       Item: {
@@ -59,7 +61,8 @@ const saveMessageToDynamoDB = async (message) => {
         messageId: message.messageId,
         senderId: message.senderId,
         content: message.content,
-        createdAt: new Date().toISOString(),
+        imageUrl: message.imageUrl || null,
+        createdAt: message.createdAt || new Date().toISOString(),
         isUnread: true,
         liked: false,
       },
@@ -72,17 +75,17 @@ const saveMessageToDynamoDB = async (message) => {
   }
 };
 
-// Add Health Check Endpoint
+// Health Check Endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "healthy" });
 });
 
-// Add Root Route
+// Root Endpoint
 app.get("/", (req, res) => {
   res.status(200).send("Welcome to the Vibin API!");
 });
 
-// Handle connection
+// Handle socket connection
 io.on("connection", (socket) => {
   console.log(`✅ Client connected: ${socket.id}`);
 
@@ -96,9 +99,9 @@ io.on("connection", (socket) => {
   });
 
   socket.on("sendMessage", async (message) => {
-    const { matchId, content, senderId, messageId } = message;
+    const { matchId, content, senderId, messageId, imageUrl } = message;
     if (matchId) {
-      console.log(`📩 New message in room ${matchId}:`, content);
+      console.log(`📩 New message in room ${matchId}:`, content || "Image Uploaded");
       await saveMessageToDynamoDB(message);
       io.to(matchId).emit("newMessage", message);
     } else {
