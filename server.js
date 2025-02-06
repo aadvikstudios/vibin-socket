@@ -25,26 +25,30 @@ AWS.config.update({
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
 const TABLE_NAME = "Messages"; // DynamoDB table name
 
-// Create HTTP and WebSocket servers
-const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  cors: {
-    origin: "*", // Allow all origins
-    methods: ["GET", "POST"],
-  },
-});
-
 // Function to save message to DynamoDB
 const saveMessageToDynamoDB = async (message) => {
   try {
+    console.log("🟢 Message received:", message);
+
+    // Validate message contains required keys
+    if (!message.matchId || !message.createdAt) {
+      console.error("❌ Missing matchId or createdAt in message:", message);
+      return;
+    }
+
+    // Ensure createdAt is a valid timestamp
+    const createdAtTimestamp = message.createdAt || new Date().toISOString();
+
     // Define parameters for checking existing message
     const getParams = {
       TableName: TABLE_NAME,
       Key: {
         matchId: message.matchId,
-        messageId: message.messageId,
+        createdAt: createdAtTimestamp,
       },
     };
+
+    console.log("🔍 Checking existing message:", getParams);
 
     // Check if the message already exists
     const existingMessage = await dynamoDB.get(getParams).promise();
@@ -57,24 +61,35 @@ const saveMessageToDynamoDB = async (message) => {
     const putParams = {
       TableName: TABLE_NAME,
       Item: {
-        matchId: message.matchId,
-        messageId: message.messageId,
+        matchId: message.matchId, // Partition key
+        createdAt: createdAtTimestamp, // Sort key
+        messageId: message.messageId, // Keeping for reference
         senderId: message.senderId,
         content: message.content || null,
         imageUrl: message.imageUrl || null,
-        createdAt: message.createdAt || new Date().toISOString(),
         isUnread: true,
         liked: false,
       },
     };
 
+    console.log("📌 Saving message:", putParams);
+
     // Save the message to DynamoDB
     await dynamoDB.put(putParams).promise();
     console.log("✅ Message saved to DynamoDB:", message);
   } catch (error) {
-    console.error("❌ Error saving message to DynamoDB:", error.message);
+    console.error("❌ Error saving message to DynamoDB:", error);
   }
 };
+
+// Create HTTP and WebSocket servers
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*", // Allow all origins
+    methods: ["GET", "POST"],
+  },
+});
 
 // WebSocket logic
 io.on("connection", (socket) => {
@@ -92,9 +107,9 @@ io.on("connection", (socket) => {
 
   // Handle sending messages
   socket.on("sendMessage", async (message) => {
-    const { matchId, messageId } = message;
-    if (!matchId || !messageId) {
-      console.error("❌ Invalid matchId or messageId in message");
+    const { matchId, createdAt } = message;
+    if (!matchId || !createdAt) {
+      console.error("❌ Invalid matchId or createdAt in message");
       return;
     }
 
@@ -118,7 +133,7 @@ io.on("connection", (socket) => {
 
 // API Routes
 app.get("/", (req, res) => {
-  res.status(200).send("Welcome to the Vibin API!");
+  res.status(200).send("Welcome to the Vibin SOCKET");
 });
 
 app.get("/health", (req, res) => {
