@@ -102,6 +102,7 @@ io.on("connection", (socket) => {
         messageId: message.messageId,
         senderId: message.senderId,
         content: message.content || null,
+        imageUrl: message.imageUrl || null,
         replyTo: message.replyTo || null, // ✅ Store reply data
       },
     };
