@@ -152,38 +152,48 @@ io.on("connection", (socket) => {
   });
 
   // Mark messages as read
+  // Mark messages as read
   socket.on("messageRead", async ({ matchId, senderId }) => {
     try {
-      console.log(`🔍 Marking messages as read for matchId: ${matchId}`); // Debugging log
+      console.log(`🔍 Marking messages as read for matchId: ${matchId}`);
 
+      // Fetch messages that are still "delivered" and mark them as "read"
       const scanParams = {
         TableName: TABLE_NAME,
-        KeyConditionExpression: "matchId = :matchId",
-        FilterExpression: "senderId <> :senderId AND #status <> :read",
+        FilterExpression:
+          "matchId = :matchId AND senderId <> :senderId AND #status = :delivered",
         ExpressionAttributeNames: { "#status": "status" },
         ExpressionAttributeValues: {
           ":matchId": matchId,
           ":senderId": senderId,
-          ":read": "read",
+          ":delivered": "delivered",
         },
       };
 
       const { Items } = await dynamoDB.scan(scanParams).promise();
       if (Items.length > 0) {
+        console.log(`✅ Found ${Items.length} delivered messages to update.`);
+
         for (let msg of Items) {
-          await dynamoDB
-            .update({
-              TableName: TABLE_NAME,
-              Key: { matchId, createdAt: msg.createdAt },
-              UpdateExpression: "set #status = :read",
-              ExpressionAttributeNames: { "#status": "status" },
-              ExpressionAttributeValues: { ":read": "read" },
-            })
-            .promise();
+          const updateParams = {
+            TableName: TABLE_NAME,
+            Key: { matchId, createdAt: msg.createdAt },
+            UpdateExpression: "set #status = :read",
+            ExpressionAttributeNames: { "#status": "status" },
+            ExpressionAttributeValues: { ":read": "read" },
+          };
+
+          await dynamoDB.update(updateParams).promise();
         }
 
+        // Emit status update to all clients in the chat
         io.to(matchId).emit("messageStatusUpdate", { status: "read" });
+
         console.log(`✅ Messages marked as read for matchId: ${matchId}`);
+      } else {
+        console.log(
+          `⚠️ No delivered messages found to update for matchId: ${matchId}`
+        );
       }
     } catch (error) {
       console.error("❌ Error updating messages to read:", error);
