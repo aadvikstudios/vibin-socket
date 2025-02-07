@@ -107,6 +107,7 @@ io.on("connection", (socket) => {
   socket.on("messageRead", async ({ matchId, userId }) => {
     if (!matchId || !userId) return;
     console.log(`🔍 Marking messages as read for chat ${matchId}`);
+
     try {
       const scanParams = {
         TableName: TABLE_NAME,
@@ -122,16 +123,22 @@ io.on("connection", (socket) => {
 
       const { Items } = await dynamoDB.scan(scanParams).promise();
       if (Items.length > 0) {
-        for (let msg of Items) {
-          const updateParams = {
-            TableName: TABLE_NAME,
-            Key: { matchId, createdAt: msg.createdAt },
-            UpdateExpression: "set #status = :read",
-            ExpressionAttributeNames: { "#status": "status" },
-            ExpressionAttributeValues: { ":read": "read" },
-          };
-          await dynamoDB.update(updateParams).promise();
-        }
+        console.log(`✅ Found ${Items.length} messages to update to "read"`);
+
+        // Use `Promise.all()` for efficiency
+        await Promise.all(
+          Items.map(async (msg) => {
+            const updateParams = {
+              TableName: TABLE_NAME,
+              Key: { matchId, createdAt: msg.createdAt },
+              UpdateExpression: "set #status = :read",
+              ExpressionAttributeNames: { "#status": "status" },
+              ExpressionAttributeValues: { ":read": "read" },
+            };
+            return dynamoDB.update(updateParams).promise();
+          })
+        );
+
         io.to(matchId).emit("messageStatusUpdate", { status: "read" });
       }
     } catch (error) {
