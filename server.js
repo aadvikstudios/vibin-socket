@@ -55,7 +55,6 @@ const saveMessageToDynamoDB = async (message) => {
         imageUrl: message.imageUrl || null,
         isUnread: true,
         liked: false,
-        status: "sent", // Default status
       },
     };
 
@@ -100,79 +99,6 @@ io.on("connection", (socket) => {
 
     await saveMessageToDynamoDB(message);
     io.to(message.matchId).emit("newMessage", message);
-  });
-
-  // Mark message as delivered
-  socket.on("messageDelivered", async ({ matchId, createdAt }) => {
-    try {
-      if (!matchId || !createdAt) {
-        console.error(
-          "❌ Missing matchId or createdAt in messageDelivered event"
-        );
-        return;
-      }
-
-      console.log(
-        `🔍 Marking message as delivered: matchId=${matchId}, createdAt=${createdAt}`
-      );
-
-      const updateParams = {
-        TableName: TABLE_NAME,
-        Key: { matchId, createdAt },
-        UpdateExpression: "set #status = :delivered",
-        ExpressionAttributeNames: { "#status": "status" },
-        ExpressionAttributeValues: { ":delivered": "delivered" },
-        ConditionExpression: "#status = :sent", // ✅ Prevents downgrading "read" messages
-      };
-
-      await dynamoDB.update(updateParams).promise();
-
-      io.to(matchId).emit("messageStatusUpdate", {
-        createdAt,
-        status: "delivered",
-      });
-
-      console.log(
-        `✅ Message marked as delivered: matchId=${matchId}, createdAt=${createdAt}`
-      );
-    } catch (error) {
-      console.error("❌ Error updating message status to delivered:", error);
-    }
-  });
-
-  // Mark messages as read
-  socket.on("messageRead", async ({ matchId, createdAt, senderId }) => {
-    try {
-      if (!matchId || !createdAt || !senderId) {
-        console.error(
-          "❌ Missing matchId, createdAt, or senderId in messageRead event"
-        );
-        return;
-      }
-
-      console.log(
-        `🔍 Marking message as read: matchId=${matchId}, createdAt=${createdAt}`
-      );
-
-      const updateParams = {
-        TableName: TABLE_NAME,
-        Key: { matchId, createdAt }, // Using matchId + createdAt as the key
-        UpdateExpression: "set #status = :read",
-        ExpressionAttributeNames: { "#status": "status" },
-        ExpressionAttributeValues: { ":read": "read" },
-        ConditionExpression: "#status = :delivered", // ✅ Prevents updating already "read" messages
-      };
-
-      await dynamoDB.update(updateParams).promise();
-
-      io.to(matchId).emit("messageStatusUpdate", { createdAt, status: "read" });
-
-      console.log(
-        `✅ Message marked as read: matchId=${matchId}, createdAt=${createdAt}`
-      );
-    } catch (error) {
-      console.error("❌ Error updating message status to read:", error);
-    }
   });
 
   socket.on("disconnect", (reason) => {
