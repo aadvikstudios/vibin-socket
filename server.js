@@ -101,6 +101,37 @@ io.on("connection", (socket) => {
     io.to(message.matchId).emit("newMessage", message);
   });
 
+  /**
+   * Handle Like Message Event (Real-time Update)
+   */
+  socket.on("likeMessage", async ({ matchId, createdAt, messageId, liked }) => {
+    try {
+      if (!matchId || !createdAt || !messageId) {
+        console.error("❌ Invalid likeMessage event parameters");
+        return;
+      }
+
+      console.log(`❤️ Message liked: ${messageId} in match ${matchId}`);
+
+      // Update message like status in DynamoDB
+      const updateParams = {
+        TableName: TABLE_NAME,
+        Key: { matchId, createdAt }, // Using matchId + createdAt as the key
+        UpdateExpression: "set liked = :liked",
+        ExpressionAttributeValues: { ":liked": liked },
+      };
+
+      await dynamoDB.update(updateParams).promise();
+
+      // Broadcast the like event to all clients in the match room
+      io.to(matchId).emit("messageLiked", { messageId, liked });
+
+      console.log(`✅ Message ${messageId} updated with liked=${liked}`);
+    } catch (error) {
+      console.error("❌ Error liking message:", error);
+    }
+  });
+
   socket.on("disconnect", (reason) => {
     console.log(`❌ Client disconnected: ${socket.id}, Reason: ${reason}`);
   });
