@@ -91,16 +91,25 @@ io.on("connection", (socket) => {
       console.error("❌ Invalid matchId or createdAt in message");
       return;
     }
-
-    console.log(
-      `📩 New message in room ${message.matchId}:`,
-      message.content || "Image Uploaded"
-    );
-
-    await saveMessageToDynamoDB(message);
+  
+    console.log(`📩 New message in room ${message.matchId}:`, message.content);
+  
+    const putParams = {
+      TableName: TABLE_NAME,
+      Item: {
+        matchId: message.matchId,
+        createdAt: message.createdAt,
+        messageId: message.messageId,
+        senderId: message.senderId,
+        content: message.content || null,
+        replyTo: message.replyTo || null, // ✅ Store reply data
+      },
+    };
+  
+    await dynamoDB.put(putParams).promise();
     io.to(message.matchId).emit("newMessage", message);
   });
-
+  
   /**
    * Handle Like Message Event (Real-time Update)
    */
