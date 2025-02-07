@@ -109,7 +109,6 @@ io.on("connection", (socket) => {
         `🔍 Fetching all 'sent' messages to mark as delivered for matchId: ${matchId}`
       );
 
-      // Fetch all messages that are still in "sent" state
       const scanParams = {
         TableName: TABLE_NAME,
         FilterExpression: "matchId = :matchId AND #status = :sent",
@@ -120,9 +119,10 @@ io.on("connection", (socket) => {
       const { Items } = await dynamoDB.scan(scanParams).promise();
 
       if (Items.length > 0) {
-        console.log(`✅ Found ${Items.length} messages to update.`);
+        console.log(
+          `✅ Found ${Items.length} messages to update to delivered.`
+        );
 
-        // Update each message to "delivered"
         for (let msg of Items) {
           const updateParams = {
             TableName: TABLE_NAME,
@@ -130,34 +130,28 @@ io.on("connection", (socket) => {
             UpdateExpression: "set #status = :delivered",
             ExpressionAttributeNames: { "#status": "status" },
             ExpressionAttributeValues: { ":delivered": "delivered" },
+            ConditionExpression: "#status = :sent", // ✅ Prevent overwriting "read" messages
           };
 
           await dynamoDB.update(updateParams).promise();
         }
 
-        // Emit event to frontend for real-time update
         io.to(matchId).emit("messageStatusUpdate", { status: "delivered" });
 
         console.log(
           `✅ All messages for matchId: ${matchId} marked as delivered`
         );
-      } else {
-        console.log(
-          `⚠️ No 'sent' messages found to update for matchId: ${matchId}`
-        );
       }
     } catch (error) {
-      console.error("❌ Error updating message status:", error);
+      console.error("❌ Error updating message status to delivered:", error);
     }
   });
 
-  // Mark messages as read
   // Mark messages as read
   socket.on("messageRead", async ({ matchId, senderId }) => {
     try {
       console.log(`🔍 Marking messages as read for matchId: ${matchId}`);
 
-      // Fetch messages that are still "delivered" and mark them as "read"
       const scanParams = {
         TableName: TABLE_NAME,
         FilterExpression:
@@ -171,8 +165,11 @@ io.on("connection", (socket) => {
       };
 
       const { Items } = await dynamoDB.scan(scanParams).promise();
+
       if (Items.length > 0) {
-        console.log(`✅ Found ${Items.length} delivered messages to update.`);
+        console.log(
+          `✅ Found ${Items.length} delivered messages to update to read.`
+        );
 
         for (let msg of Items) {
           const updateParams = {
@@ -181,12 +178,12 @@ io.on("connection", (socket) => {
             UpdateExpression: "set #status = :read",
             ExpressionAttributeNames: { "#status": "status" },
             ExpressionAttributeValues: { ":read": "read" },
+            ConditionExpression: "#status = :delivered", // ✅ Prevent downgrading messages back to delivered
           };
 
           await dynamoDB.update(updateParams).promise();
         }
 
-        // Emit status update to all clients in the chat
         io.to(matchId).emit("messageStatusUpdate", { status: "read" });
 
         console.log(`✅ Messages marked as read for matchId: ${matchId}`);
