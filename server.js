@@ -19,7 +19,7 @@ AWS.config.update({
 });
 
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
-const TABLE_NAME = "Messages"; // DynamoDB table name
+const TABLE_NAME = "Message"; // DynamoDB table name
 
 // Function to save message to DynamoDB
 const saveMessageToDynamoDB = async (message) => {
@@ -53,8 +53,8 @@ const saveMessageToDynamoDB = async (message) => {
         senderId: message.senderId,
         content: message.content || null,
         imageUrl: message.imageUrl || null,
-        isUnread: true,
-        liked: false,
+        isUnread: "true", // Stored as string
+        liked: false, // Default state
       },
     };
 
@@ -91,9 +91,9 @@ io.on("connection", (socket) => {
       console.error("❌ Invalid matchId or createdAt in message");
       return;
     }
-  
+
     console.log(`📩 New message in room ${message.matchId}:`, message.content);
-  
+
     const putParams = {
       TableName: TABLE_NAME,
       Item: {
@@ -106,14 +106,12 @@ io.on("connection", (socket) => {
         replyTo: message.replyTo || null, // ✅ Store reply data
       },
     };
-  
+
     await dynamoDB.put(putParams).promise();
     io.to(message.matchId).emit("newMessage", message);
   });
-  
-  /**
-   * Handle Like Message Event (Real-time Update)
-   */
+
+  // Handle liking a message
   socket.on("likeMessage", async ({ matchId, createdAt, messageId, liked }) => {
     try {
       if (!matchId || !createdAt || !messageId) {
@@ -139,6 +137,20 @@ io.on("connection", (socket) => {
       console.log(`✅ Message ${messageId} updated with liked=${liked}`);
     } catch (error) {
       console.error("❌ Error liking message:", error);
+    }
+  });
+
+  // Handle marking messages as read
+  socket.on("markAsRead", async ({ matchId, userHandle }) => {
+    try {
+      console.log(
+        `👀 Marking messages as read for matchId: ${matchId} by ${userHandle}`
+      );
+
+      // Broadcast the read event
+      io.to(matchId).emit("messagesRead", { matchId, readerId: userHandle });
+    } catch (error) {
+      console.error("❌ Error marking messages as read:", error);
     }
   });
 
