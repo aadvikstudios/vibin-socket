@@ -43,20 +43,21 @@ const saveMessageToDynamoDB = async (message) => {
       console.log("⚠️ Duplicate message detected:", message.messageId);
       return;
     }
-
     const putParams = {
       TableName: TABLE_NAME,
       Item: {
         matchId: message.matchId,
-        createdAt: createdAtTimestamp,
+        createdAt: message.createdAt,
         messageId: message.messageId,
         senderId: message.senderId,
         content: message.content || null,
         imageUrl: message.imageUrl || null,
-        isUnread: "true", // Stored as string
-        liked: false, // Default state
+        isUnread: "true",
+        liked: false,
       },
+      ConditionExpression: "attribute_not_exists(messageId)", // Prevent duplicates
     };
+    await dynamoDB.put(putParams).promise();
 
     await dynamoDB.put(putParams).promise();
     console.log("✅ Message saved to DynamoDB:", message);
@@ -136,7 +137,9 @@ io.on("connection", (socket) => {
       // Broadcast the like event to all clients in the match room
       io.to(matchId).emit("messageLiked", { matchId, createdAt, liked });
 
-      console.log(`✅ Message at ${createdAt} updated with liked=${liked}`);
+      console.log(
+        `✅ Message at ${createdAt} updated withandleSendMessage h liked=${liked}`
+      );
     } catch (error) {
       console.error("❌ Error liking message:", error);
     }
