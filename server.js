@@ -95,6 +95,20 @@ io.on("connection", (socket) => {
 
     console.log(`📩 New message in room ${message.matchId}:`, message.content);
 
+    const getParams = {
+      TableName: TABLE_NAME,
+      Key: { matchId: message.matchId, createdAt: message.createdAt },
+    };
+    const existingMessage = await dynamoDB.get(getParams).promise();
+
+    if (existingMessage.Item) {
+      console.warn(
+        "⚠️ Duplicate message detected, skipping insert:",
+        message.messageId
+      );
+      return;
+    }
+
     const putParams = {
       TableName: TABLE_NAME,
       Item: {
@@ -104,8 +118,9 @@ io.on("connection", (socket) => {
         senderId: message.senderId,
         content: message.content || null,
         imageUrl: message.imageUrl || null,
-        replyTo: message.replyTo || null, // ✅ Store reply data
+        replyTo: message.replyTo || null,
       },
+      ConditionExpression: "attribute_not_exists(messageId)", // ✅ Prevent duplicates
     };
 
     await dynamoDB.put(putParams).promise();
