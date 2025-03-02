@@ -20,7 +20,7 @@ AWS.config.update({
 });
 
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
-const TABLE_NAME = "Message"; // DynamoDB table name
+const TABLE_NAME = "Message"; // DynamoDB table for private chat
 const GROUP_TABLE_NAME = "GroupMessages"; // DynamoDB table for group chat
 
 // Create HTTP and WebSocket servers
@@ -120,7 +120,7 @@ io.on("connection", (socket) => {
     io.to(message.groupId).emit("newGroupMessage", message);
   });
 
-  /** ✅ Handle Liking a Message (Private & Group) */
+  /** ✅ Handle Liking a Private Message */
   socket.on("likeMessage", async ({ matchId, createdAt, liked }) => {
     try {
       if (!matchId || !createdAt) {
@@ -142,7 +142,7 @@ io.on("connection", (socket) => {
       await dynamoDB.update(updateParams).promise();
       io.to(matchId).emit("messageLiked", { matchId, createdAt, liked });
     } catch (error) {
-      console.error("❌ Error liking message:", error);
+      console.error("❌ Error liking private message:", error);
     }
   });
 
@@ -172,18 +172,19 @@ io.on("connection", (socket) => {
     }
   });
 
-  /** ✅ Handle Marking Messages as Read (Private & Group) */
+  /** ✅ Handle Marking Private Messages as Read */
   socket.on("markAsRead", async ({ matchId, userHandle }) => {
     try {
       console.log(
-        `👀 Marking messages as read for ${matchId} by ${userHandle}`
+        `👀 Marking private messages as read for ${matchId} by ${userHandle}`
       );
       io.to(matchId).emit("messagesRead", { matchId, readerId: userHandle });
     } catch (error) {
-      console.error("❌ Error marking messages as read:", error);
+      console.error("❌ Error marking private messages as read:", error);
     }
   });
 
+  /** ✅ Handle Marking Group Messages as Read */
   socket.on("markGroupMessagesAsRead", async ({ groupId, userHandle }) => {
     try {
       console.log(
@@ -198,6 +199,7 @@ io.on("connection", (socket) => {
     }
   });
 
+  /** ✅ Handle Disconnection */
   socket.on("disconnect", (reason) => {
     console.log(`❌ Client disconnected: ${socket.id}, Reason: ${reason}`);
   });
