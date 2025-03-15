@@ -115,21 +115,20 @@ io.on("connection", (socket) => {
 
     console.log(
       `📩 New group message received in ${message.groupId}:`,
-      message.content
+      message.content || "[Image]"
     );
 
     try {
-      // ✅ Check if message already exists in DynamoDB
+      // ✅ Save message to DB first (if not already exists)
       const getParams = {
         TableName: GROUP_TABLE_NAME,
         Key: {
           groupId: message.groupId,
-          messageId: message.messageId, // Ensure unique message ID
+          messageId: message.messageId, // Ensure uniqueness
         },
       };
 
       const existingMessage = await dynamoDB.get(getParams).promise();
-
       if (existingMessage.Item) {
         console.warn(
           `⚠️ Duplicate message detected. Skipping: ${message.messageId}`
@@ -137,11 +136,11 @@ io.on("connection", (socket) => {
         return;
       }
 
-      // ✅ Store the message if it doesn’t exist
+      // ✅ Store message in DB
       await saveMessageToDynamoDB(GROUP_TABLE_NAME, message);
 
-      // ✅ Emit message ONLY to other users, NOT to the sender
-      socket.to(message.groupId).emit("newGroupMessage", message);
+      // ✅ Emit message to **ALL** users in the group including sender
+      io.to(message.groupId).emit("newGroupMessage", message);
     } catch (error) {
       console.warn(
         `⚠️ Message ${message.messageId} might already exist. Skipping duplicate insert.`
