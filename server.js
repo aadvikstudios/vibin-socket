@@ -119,15 +119,26 @@ io.on("connection", (socket) => {
     );
 
     try {
-      // ✅ Store the message if it doesn't exist (to prevent duplicates)
-      const saveResult = await saveMessageToDynamoDB(GROUP_TABLE_NAME, message);
+      // ✅ Check if message already exists in DynamoDB
+      const getParams = {
+        TableName: GROUP_TABLE_NAME,
+        Key: {
+          groupId: message.groupId,
+          messageId: message.messageId, // Ensure unique message ID
+        },
+      };
 
-      if (!saveResult) {
+      const existingMessage = await dynamoDB.get(getParams).promise();
+
+      if (existingMessage.Item) {
         console.warn(
           `⚠️ Duplicate message detected. Skipping: ${message.messageId}`
         );
         return;
       }
+
+      // ✅ Store the message if it doesn’t exist
+      await saveMessageToDynamoDB(GROUP_TABLE_NAME, message);
 
       // ✅ Emit message ONLY to other users, NOT to the sender
       socket.to(message.groupId).emit("newGroupMessage", message);
