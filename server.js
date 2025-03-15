@@ -114,42 +114,42 @@ io.on("connection", (socket) => {
 
   socket.on("sendGroupMessage", async (message) => {
     if (!message.groupId || !message.createdAt) {
-      console.error("❌ Invalid groupId or createdAt in message");
-      return;
+        console.error("❌ Invalid groupId or createdAt in message");
+        return;
     }
 
-    console.log(
-      `📩 New group message received in ${message.groupId}:`,
-      message.content || "[Image]"
-    );
+    console.log(`📩 New group message received in ${message.groupId}:`, message.content || "[Image]");
 
     try {
-      // ✅ Check if message already exists
-      const getParams = {
-        TableName: GROUP_TABLE_NAME,
-        Key: { groupId: message.groupId, messageId: message.messageId },
-      };
+        // ✅ Check if message already exists using correct key structure
+        const getParams = {
+            TableName: GROUP_TABLE_NAME,
+            Key: { 
+                groupId: message.groupId, 
+                createdAt: message.createdAt  // ✅ Correct key structure
+            }
+        };
 
-      const existingMessage = await dynamoDB.get(getParams).promise();
-      if (existingMessage.Item) {
-        console.warn(
-          `⚠️ Duplicate message detected. Skipping: ${message.messageId}`
-        );
-        return;
-      }
+        console.log("🔍 Checking if message exists:", getParams);
+        const existingMessage = await dynamoDB.get(getParams).promise();
+        console.log("✅ Existing message check:", existingMessage);
 
-      // ✅ Store message in DB
-      await saveMessageToDynamoDB(GROUP_TABLE_NAME, message);
+        if (existingMessage.Item) {
+            console.warn(`⚠️ Duplicate message detected. Skipping: ${message.messageId}`);
+            return;
+        }
 
-      // ✅ Emit message to ALL users in the group
-      io.in(message.groupId).emit("newGroupMessage", message); // 🔥 Use `in()` instead of `to()`
+        // ✅ Store message in DynamoDB
+        await saveMessageToDynamoDB(GROUP_TABLE_NAME, message);
 
-      // ✅ Send acknowledgment to sender
-      socket.emit("messageDelivered", { messageId: message.messageId });
+        // ✅ Emit message to all users in the group
+        io.in(message.groupId).emit("newGroupMessage", message);
+        console.log(`📩 Message emitted to group ${message.groupId}`);
     } catch (error) {
-      console.warn(`⚠️ Error processing message ${message.messageId}:`, error);
+        console.error(`⚠️ Error processing message ${message.messageId}:`, error);
     }
-  });
+});
+
 
   /** ✅ Handle Liking a Private Message */
   socket.on("likeMessage", async ({ matchId, createdAt, liked }) => {
