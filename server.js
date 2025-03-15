@@ -124,37 +124,45 @@ io.on("connection", (socket) => {
     );
 
     try {
-      // ✅ Ensure keys match table schema
+      console.log("🔍 Checking for existing message with keys:", {
+        TableName: GROUP_TABLE_NAME,
+        Key: {
+          groupId: message.groupId,
+          createdAt: message.createdAt, // ✅ Use createdAt instead of messageId
+        },
+      });
+
+      // ✅ Check if message already exists before storing
       const getParams = {
         TableName: GROUP_TABLE_NAME,
         Key: {
-          groupId: message.groupId, // Partition Key
-          messageId: message.messageId, // Sort Key
+          groupId: message.groupId,
+          createdAt: message.createdAt, // ✅ Ensure this matches the DynamoDB table schema
         },
       };
 
-      console.log("🔍 Checking for existing message with keys:", getParams);
-
       const existingMessage = await dynamoDB.get(getParams).promise();
+
       if (existingMessage.Item) {
         console.warn(
-          `⚠️ Duplicate message detected. Skipping storage: ${message.messageId}`
+          `⚠️ Duplicate message detected. Skipping storage & emission: ${message.messageId}`
         );
         return;
       }
 
-      // ✅ Emit the message immediately to all group members
-      console.log(`📤 Broadcasting message to group: ${message.groupId}`);
-      io.in(message.groupId).emit("newGroupMessage", message);
-
-      // ✅ Verify active users
-      console.log(`ℹ️ Active rooms:`, io.sockets.adapter.rooms);
-
-      // ✅ Store the message in the database
+      // ✅ Store message in DB
       await saveMessageToDynamoDB(GROUP_TABLE_NAME, message);
-      console.log(`✅ Message saved in DynamoDB for group: ${message.groupId}`);
+
+      // ✅ Emit message to all users in group
+      io.in(message.groupId).emit("newGroupMessage", message);
     } catch (error) {
       console.warn(`⚠️ Error processing message ${message.messageId}:`, error);
+
+      if (error.code === "ValidationException") {
+        console.error(
+          "🚨 DynamoDB Schema Mismatch: Check that 'createdAt' is the sort key."
+        );
+      }
     }
   });
 
