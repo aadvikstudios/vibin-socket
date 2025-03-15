@@ -79,11 +79,13 @@ io.on("connection", (socket) => {
     }
   });
 
-  // 🔹 Join Group Chat Room
   socket.on("joinGroup", ({ groupId }) => {
     if (groupId) {
       socket.join(groupId);
       console.log(`👥 User ${socket.id} joined group chat: ${groupId}`);
+
+      // Print active rooms
+      console.log(`ℹ️ Active rooms:`, io.sockets.adapter.rooms);
     } else {
       console.error("❌ Invalid groupId provided");
     }
