@@ -124,7 +124,7 @@ io.on("connection", (socket) => {
     );
 
     try {
-      // ✅ Check if message already exists before storing
+      // ✅ Check if the message exists before storing (to avoid duplicates)
       const getParams = {
         TableName: GROUP_TABLE_NAME,
         Key: { groupId: message.groupId, messageId: message.messageId },
@@ -133,16 +133,21 @@ io.on("connection", (socket) => {
       const existingMessage = await dynamoDB.get(getParams).promise();
       if (existingMessage.Item) {
         console.warn(
-          `⚠️ Duplicate message detected. Skipping storage & emission: ${message.messageId}`
+          `⚠️ Duplicate message detected. Skipping: ${message.messageId}`
         );
         return;
       }
 
-      // ✅ Store message in DB
-      await saveMessageToDynamoDB(GROUP_TABLE_NAME, message);
-
-      // ✅ Emit message to all users in group
+      // ✅ Emit the message immediately to all users before DB storage
+      console.log(`📤 Broadcasting message to group: ${message.groupId}`);
       io.in(message.groupId).emit("newGroupMessage", message);
+
+      // ✅ Verify if users are in the correct room
+      console.log(`ℹ️ Active rooms:`, io.sockets.adapter.rooms);
+
+      // ✅ Store the message in the database
+      await saveMessageToDynamoDB(GROUP_TABLE_NAME, message);
+      console.log(`✅ Message saved in DynamoDB for group: ${message.groupId}`);
     } catch (error) {
       console.warn(`⚠️ Error processing message ${message.messageId}:`, error);
     }
