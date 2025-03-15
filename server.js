@@ -84,11 +84,15 @@ io.on("connection", (socket) => {
       socket.join(groupId);
       console.log(`👥 User ${socket.id} joined group chat: ${groupId}`);
 
-      // Print active rooms
+      // ✅ Print active rooms
       console.log(`ℹ️ Active rooms:`, io.sockets.adapter.rooms);
     } else {
       console.error("❌ Invalid groupId provided");
     }
+  });
+  socket.on("ping", () => {
+    console.log(`🏓 Ping received from ${socket.id}`);
+    socket.emit("pong");
   });
 
   /** ✅ Handle Sending Private Messages */
@@ -108,7 +112,6 @@ io.on("connection", (socket) => {
     io.to(message.matchId).emit("newMessage", message);
   });
 
-  /** ✅ Handle Sending Group Messages */
   socket.on("sendGroupMessage", async (message) => {
     if (!message.groupId || !message.createdAt) {
       console.error("❌ Invalid groupId or createdAt in message");
@@ -121,13 +124,10 @@ io.on("connection", (socket) => {
     );
 
     try {
-      // ✅ Save message to DB first (if not already exists)
+      // ✅ Check if message already exists
       const getParams = {
         TableName: GROUP_TABLE_NAME,
-        Key: {
-          groupId: message.groupId,
-          messageId: message.messageId, // Ensure uniqueness
-        },
+        Key: { groupId: message.groupId, messageId: message.messageId },
       };
 
       const existingMessage = await dynamoDB.get(getParams).promise();
@@ -141,12 +141,13 @@ io.on("connection", (socket) => {
       // ✅ Store message in DB
       await saveMessageToDynamoDB(GROUP_TABLE_NAME, message);
 
-      // ✅ Emit message to **ALL** users in the group including sender
-      io.to(message.groupId).emit("newGroupMessage", message);
+      // ✅ Emit message to ALL users in the group
+      io.in(message.groupId).emit("newGroupMessage", message); // 🔥 Use `in()` instead of `to()`
+
+      // ✅ Send acknowledgment to sender
+      socket.emit("messageDelivered", { messageId: message.messageId });
     } catch (error) {
-      console.warn(
-        `⚠️ Message ${message.messageId} might already exist. Skipping duplicate insert.`
-      );
+      console.warn(`⚠️ Error processing message ${message.messageId}:`, error);
     }
   });
 
