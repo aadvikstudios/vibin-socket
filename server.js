@@ -114,10 +114,34 @@ io.on("connection", (socket) => {
     }
 
     console.log(`📩 New group message in ${message.groupId}:`, message.content);
-    await saveMessageToDynamoDB(GROUP_TABLE_NAME, message);
 
-    // Emit the message to the group room
-    io.to(message.groupId).emit("newGroupMessage", message);
+    // ✅ Prevent duplicate message storage
+    try {
+      await saveMessageToDynamoDB(GROUP_TABLE_NAME, message);
+      io.to(message.groupId).emit("newGroupMessage", message); // ✅ Only emit if message is stored
+    } catch (error) {
+      console.warn(
+        `⚠️ Message ${message.messageId} might already exist. Skipping duplicate insert.`
+      );
+    }
+  }); /** ✅ Handle Sending Group Messages */
+  socket.on("sendGroupMessage", async (message) => {
+    if (!message.groupId || !message.createdAt) {
+      console.error("❌ Invalid groupId or createdAt in message");
+      return;
+    }
+
+    console.log(`📩 New group message in ${message.groupId}:`, message.content);
+
+    // ✅ Prevent duplicate message storage
+    try {
+      await saveMessageToDynamoDB(GROUP_TABLE_NAME, message);
+      io.to(message.groupId).emit("newGroupMessage", message); // ✅ Only emit if message is stored
+    } catch (error) {
+      console.warn(
+        `⚠️ Message ${message.messageId} might already exist. Skipping duplicate insert.`
+      );
+    }
   });
 
   /** ✅ Handle Liking a Private Message */
