@@ -119,13 +119,21 @@ io.on("connection", (socket) => {
     );
 
     try {
-      await saveMessageToDynamoDB(GROUP_TABLE_NAME, message);
+      // ✅ Store the message if it doesn't exist (to prevent duplicates)
+      const saveResult = await saveMessageToDynamoDB(GROUP_TABLE_NAME, message);
+
+      if (!saveResult) {
+        console.warn(
+          `⚠️ Duplicate message detected. Skipping: ${message.messageId}`
+        );
+        return;
+      }
 
       // ✅ Emit message ONLY to other users, NOT to the sender
       socket.to(message.groupId).emit("newGroupMessage", message);
     } catch (error) {
       console.warn(
-        `⚠️ Duplicate message detected in DynamoDB. Skipping: ${message.messageId}`
+        `⚠️ Message ${message.messageId} might already exist. Skipping duplicate insert.`
       );
     }
   });
